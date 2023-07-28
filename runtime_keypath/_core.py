@@ -53,10 +53,9 @@ class _KeyPathRecorder:
     busy: bool = False
 
 
-# ! A metaclass is made for class `KeyPath`, and `KeyPath.of` is
-# ! provided as a property on class `KeyPath`, so that whenever
-# ! `KeyPath.of` gets accessed, we can do something before it actually
-# ! gets called.
+# ! A metaclass is made for class `KeyPath`, and `KeyPath.of` is provided as a property
+# ! on class `KeyPath`, so that whenever `KeyPath.of` gets accessed, we can do something
+# ! before it actually gets called.
 @final
 class _KeyPathMeta(type):
     @property
@@ -126,9 +125,9 @@ class _KeyPathMeta(type):
         return func
 
 
-# ! We implement the result of `KeyPath.of` as a stand-alone class, so
-# ! that when an exception occurred during the key-path access, there
-# ! would still be a chance to perform some finalization.
+# ! We implement the result of `KeyPath.of` as a stand-alone class, so that when an
+# ! exception occurred during the key-path access, there would still be a chance to
+# ! perform some finalization.
 class _KeyPathOfFunction:
     """
     Returns the key-path for accessing a certain value from a target
@@ -218,9 +217,9 @@ class _KeyPathOfFunction:
         return key_path
 
     def __del__(self, /) -> None:
-        # ! If an exception had occured during the key-path access, or
-        # ! this function were just discarded without being finally
-        # ! called, we would do some cleaning here.
+        # ! If an exception had occured during the key-path access, or this function
+        # ! were just discarded without being finally called, we would do some cleaning
+        # ! here.
         if not self.__invoked:
             del _thread_local.recorder
 
@@ -273,15 +272,14 @@ class KeyPathSupporting:
         try:
             recorder = _thread_local.recorder
         except AttributeError:
-            # There is no recorder, which means that `KeyPath.of` is not
-            # being called. So we don't need to record this key.
+            # There is no recorder, which means that `KeyPath.of` is not being called.
+            # So we don't need to record this key.
             return super().__getattribute__(key)
 
         if recorder.busy:
-            # The recorder is busy, which means that another member is
-            # being accessed, typically because the computation of that
-            # member is dependent on this one. So we don't need to
-            # record this key.
+            # The recorder is busy, which means that another member is being accessed,
+            # typically because the computation of that member is dependent on this one.
+            # So we don't need to record this key.
             return super().__getattribute__(key)
 
         recorder.busy = True
