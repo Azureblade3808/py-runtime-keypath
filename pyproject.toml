@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "runtime-keypath"
-version = "0.1.1"
+version = "0.1.2"
 authors = [{ name = "Chris Fu", email = "17433201@qq.com" }]
 description = "Supports runtime key-path recording/accessing for Python."
 classifiers = [
