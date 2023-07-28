@@ -3,7 +3,9 @@
 Supports runtime key-path recording/accessing for Python.
 
 ```python
-from keypath import KeyPath, KeyPathSupporting
+from __future__ import annotations
+
+from runtime_keypath import KeyPath, KeyPathSupporting
 
 class A(KeyPathSupporting):
     def __init__(self) -> None:
