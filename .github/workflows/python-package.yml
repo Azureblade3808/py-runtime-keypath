@@ -28,7 +28,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install "typing-extensions>=4.4"
-        python -m pip install --upgrade pyright pytest
+        python -m pip install --upgrade black pyright pytest
+    - name: Format with black
+      run: |
+        black --diff .
     - name: Lint with pyright
       run: |
         pyright
