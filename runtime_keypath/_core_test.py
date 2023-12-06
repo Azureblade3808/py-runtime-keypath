@@ -169,3 +169,36 @@ def test_internal_reference() -> None:
 
     c = C()
     assert KeyPath.of(c.v0) == KeyPath(target=c, keys=("v0",))
+
+
+def test_get_set() -> None:
+    class A(KeyPathSupporting):
+        b: B | None = None
+
+    class B(KeyPathSupporting):
+        c: C | None = None
+
+    class C(KeyPathSupporting):
+        v: int | None = None
+
+    a = A()
+    b = B()
+    c = C()
+
+    key_path_0 = KeyPath.of(a.b)
+    assert key_path_0.get() is None
+    key_path_0.set(b)
+    assert a.b is b
+    assert key_path_0.get() is b
+
+    key_path_1 = KeyPath.of(a.b.c)  # type: ignore
+    assert key_path_1.get() is None
+    key_path_1.set(c)
+    assert a.b.c is c  # type: ignore
+    assert key_path_1.get() is c
+
+    key_path_2 = KeyPath.of(a.b.c.v)  # type: ignore
+    assert key_path_2.get() is None
+    key_path_2.set(12345)
+    assert a.b.c.v == 12345  # type: ignore
+    assert key_path_2.get() == 12345

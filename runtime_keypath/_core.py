@@ -26,7 +26,6 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 _Value_t = TypeVar("_Value_t")
-_Value_co = TypeVar("_Value_co", covariant=True)
 
 
 class _ThreadLocalProtocol(Protocol):
@@ -225,11 +224,11 @@ class _KeyPathOfFunction:
 
 
 @final
-class KeyPath(Generic[_Value_co], metaclass=_KeyPathMeta):
-    __target: Final[object]
+class KeyPath(Generic[_Value_t], metaclass=_KeyPathMeta):
+    __target: Final[Any]
     __keys: Final[Sequence[str]]
 
-    def __init__(self, /, target: object, keys: str | Sequence[str]) -> None:
+    def __init__(self, /, target: Any, keys: str | Sequence[str]) -> None:
         self.__target = target
 
         if isinstance(keys, str):
@@ -239,12 +238,26 @@ class KeyPath(Generic[_Value_co], metaclass=_KeyPathMeta):
         self.__keys = keys
 
     @property
-    def target(self, /) -> object:
+    def target(self, /) -> Any:
         return self.__target
 
     @property
     def keys(self, /) -> Sequence[str]:
         return self.__keys
+
+    def get(self, /) -> _Value_t:
+        value = self.__target
+        for key in self.__keys:
+            value = getattr(value, key)
+        return value
+
+    def set(self, value: _Value_t, /) -> None:
+        target = self.__target
+        keys = self.__keys
+        n = len(keys) - 1
+        for i in range(n):
+            target = getattr(target, keys[i])
+        setattr(target, keys[n], value)
 
     def __hash__(self, /) -> int:
         return hash((self.target, self.keys))
@@ -259,11 +272,8 @@ class KeyPath(Generic[_Value_co], metaclass=_KeyPathMeta):
     def __repr__(self, /) -> str:
         return f"{KeyPath.__name__}(target={self.target!r}, keys={self.keys!r})"
 
-    def __call__(self, /) -> _Value_co:
-        value = self.__target
-        for key in self.__keys:
-            value = getattr(value, key)
-        return cast("_Value_co", value)
+    def __call__(self, /) -> _Value_t:
+        return self.get()
 
 
 class KeyPathSupporting:
