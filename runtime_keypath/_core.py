@@ -1,6 +1,3 @@
-# pyright: reportImplicitOverride=false
-
-
 from __future__ import annotations
 
 __all__ = [
@@ -8,48 +5,78 @@ __all__ = [
     "KeyPathSupporting",
 ]
 
-# region[Keywords]
-
-from typing import TYPE_CHECKING, Final, Generic, Protocol, TypeVar, cast, final
-
-# endregion[Keywords]
-
-# region[Types]
-
-if TYPE_CHECKING:
-    from typing import Any, Sequence
-
-# endregion[Types]
-
 import threading
-from dataclasses import dataclass, field
-from typing import NamedTuple
+from collections.abc import Sequence
 
-_Value_t = TypeVar("_Value_t")
+from typing_extensions import (
+    TYPE_CHECKING,
+    Any,
+    Final,
+    Generic,
+    Protocol,
+    TypeVar,
+    cast,
+    deprecated,
+    final,
+    override,
+)
+
+_Value_co = TypeVar("_Value_co", covariant=True)
+_Value_0 = TypeVar("_Value_0")
+
+_MISSING = cast("Any", object())
 
 
-class _ThreadLocalProtocol(Protocol):
-    recorder: _KeyPathRecorder
+class KeyPathSupporting:
     """
-    The active key-path recorder for this thread. May not exist.
+    A base class that indicates an object can be used as a chain in
+    `KeyPath.of(...)` call.
     """
 
+    # ! This method is intentially not named as `__getattribute__`. See below for
+    # ! reason.
+    def _(self, key: str, /) -> Any:
+        try:
+            recorder = _thread_local.recorder
+        except AttributeError:
+            # There is no recorder, which means that `KeyPath.of` is not being called.
+            # So we don't need to record this key.
+            return super().__getattribute__(key)
 
-_thread_local = cast("_ThreadLocalProtocol", threading.local())
+        if recorder.busy:
+            # The recorder is busy, which means that another member is being accessed,
+            # typically because the computation of that member is dependent on this one.
+            # So we don't need to record this key.
+            return super().__getattribute__(key)
 
+        recorder.busy = True
 
-@final
-class _Terminals(NamedTuple):
-    start: Any
-    end: Any
+        if recorder.start is not _MISSING and recorder.end is not self:
+            raise RuntimeError(
+                " ".join(
+                    [
+                        "Key-path is broken. Check if there is something that does NOT",
+                        "support key-paths in the member chain.",
+                    ]
+                )
+            )
 
+        value = super().__getattribute__(key)
 
-@final
-@dataclass
-class _KeyPathRecorder:
-    terminals: _Terminals | None = None
-    key_list: list[str] = field(default_factory=list)
-    busy: bool = False
+        recorder.busy = False
+        if recorder.start is _MISSING:
+            recorder.start = self
+        recorder.end = value
+        recorder.key_list.append(key)
+
+        return value
+
+    # ! `__getattribute__(...)` is declared against `TYPE_CHECKING`, so that unknown
+    # ! attributes on conforming classes won't be regarded as known by type-checkers.
+    if not TYPE_CHECKING:
+        __getattribute__ = _
+
+    del _
 
 
 # ! A metaclass is made for class `KeyPath`, and `KeyPath.of` is provided as a property
@@ -59,6 +86,7 @@ class _KeyPathRecorder:
 class _KeyPathMeta(type):
     @property
     def of(self, /) -> _KeyPathOfFunction:
+        # ! Docstring here is for Pylance hint.
         """
         Returns the key-path for accessing a certain value from a target
         object with a key sequence such as `a.b.c`.
@@ -128,6 +156,7 @@ class _KeyPathMeta(type):
 # ! exception occurred during the key-path access, there would still be a chance to
 # ! perform some finalization.
 class _KeyPathOfFunction:
+    # ! Docstring here is for runtime help.
     """
     Returns the key-path for accessing a certain value from a target
     object with a key sequence such as `a.b.c`.
@@ -174,7 +203,7 @@ class _KeyPathOfFunction:
 
     __invoked: bool = False
 
-    def __call__(self, value: _Value_t, /) -> KeyPath[_Value_t]:
+    def __call__(self, value: _Value_0, /) -> KeyPath[_Value_0]:
         self.__invoked = True
 
         try:
@@ -193,16 +222,16 @@ class _KeyPathOfFunction:
 
         assert not recorder.busy
 
-        terminals = recorder.terminals
+        start = recorder.start
         key_list = recorder.key_list
-        if terminals is None:
+        if start is _MISSING:
             assert len(key_list) == 0
 
             raise RuntimeError("No key has been recorded.")
         else:
             assert len(key_list) > 0
 
-            if terminals.end is not value:
+            if recorder.end is not value:
                 raise RuntimeError(
                     " ".join(
                         [
@@ -212,7 +241,7 @@ class _KeyPathOfFunction:
                     )
                 )
 
-        key_path = KeyPath(terminals.start, key_list)
+        key_path = KeyPath(start, key_list)
         return key_path
 
     def __del__(self, /) -> None:
@@ -224,7 +253,11 @@ class _KeyPathOfFunction:
 
 
 @final
-class KeyPath(Generic[_Value_t], metaclass=_KeyPathMeta):
+class KeyPath(Generic[_Value_co], metaclass=_KeyPathMeta):
+    """
+    An object that stands for a member chain from a base object.
+    """
+
     __target: Final[Any]
     __keys: Final[Sequence[str]]
 
@@ -245,23 +278,29 @@ class KeyPath(Generic[_Value_t], metaclass=_KeyPathMeta):
     def keys(self, /) -> Sequence[str]:
         return self.__keys
 
-    def get(self, /) -> _Value_t:
+    def get(self, /) -> _Value_co:
         value = self.__target
         for key in self.__keys:
             value = getattr(value, key)
         return value
 
-    def set(self, value: _Value_t, /) -> None:
+    def unsafe_set(self: KeyPath[_Value_0], value: _Value_0, /) -> None:
         target = self.__target
         keys = self.__keys
-        n = len(keys) - 1
-        for i in range(n):
+        i_last_key = len(keys) - 1
+        for i in range(i_last_key):
             target = getattr(target, keys[i])
-        setattr(target, keys[n], value)
+        setattr(target, keys[i_last_key], value)
 
+    @deprecated("`KeyPath.set` is deprecated. Use `KeyPath.unsafe_set` instead.")
+    def set(self: KeyPath[_Value_0], value: _Value_0, /) -> None:
+        return self.unsafe_set(value)
+
+    @override
     def __hash__(self, /) -> int:
         return hash((self.target, self.keys))
 
+    @override
     def __eq__(self, other: object, /) -> bool:
         return (
             isinstance(other, KeyPath)
@@ -269,58 +308,35 @@ class KeyPath(Generic[_Value_t], metaclass=_KeyPathMeta):
             and self.keys == other.keys
         )
 
+    @override
     def __repr__(self, /) -> str:
         return f"{KeyPath.__name__}(target={self.target!r}, keys={self.keys!r})"
 
-    def __call__(self, /) -> _Value_t:
+    def __call__(self, /) -> _Value_co:
         return self.get()
 
 
-class KeyPathSupporting:
-    # ! This method is purposedly not named as `__getattribute__`. See below for reason.
-    def __getattribute_0__(self, key: str, /) -> Any:
-        try:
-            recorder = _thread_local.recorder
-        except AttributeError:
-            # There is no recorder, which means that `KeyPath.of` is not being called.
-            # So we don't need to record this key.
-            return super().__getattribute__(key)
+class _ThreadLocalProtocol(Protocol):
+    recorder: _KeyPathRecorder
+    """
+    The active key-path recorder for this thread. May not exist.
+    """
 
-        if recorder.busy:
-            # The recorder is busy, which means that another member is being accessed,
-            # typically because the computation of that member is dependent on this one.
-            # So we don't need to record this key.
-            return super().__getattribute__(key)
 
-        recorder.busy = True
+_thread_local = cast("_ThreadLocalProtocol", threading.local())
 
-        terminals = recorder.terminals
-        if terminals is not None and terminals.end is not self:
-            raise RuntimeError(
-                " ".join(
-                    [
-                        "Key-path is broken. Check if there is something that does NOT",
-                        "support key-paths in the member chain.",
-                    ]
-                )
-            )
 
-        value = super().__getattribute__(key)
+@final
+class _KeyPathRecorder:
+    __slots__ = ("busy", "start", "end", "key_list")
 
-        if terminals is None:
-            terminals = _Terminals(self, value)
-        else:
-            terminals = terminals._replace(end=value)
+    busy: bool
+    start: Any
+    end: Any
+    key_list: list[str]
 
-        recorder.terminals = terminals
-        recorder.key_list.append(key)
-        recorder.busy = False
-
-        return value
-
-    # ! `__getattribute__(...)` is declared against `TYPE_CHECKING`, so that unknown
-    # ! attributes on conforming classes won't be regarded as known by type-checkers.
-    if not TYPE_CHECKING:
-        __getattribute__ = __getattribute_0__
-
-    del __getattribute_0__
+    def __init__(self, /) -> None:
+        self.busy = False
+        self.start = _MISSING
+        self.end = _MISSING
+        self.key_list = []
