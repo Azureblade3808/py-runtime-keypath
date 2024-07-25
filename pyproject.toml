@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "runtime-keypath"
-version = "0.1.4"
+version = "0.1.5"
 authors = [{ name = "Chris Fu", email = "17433201@qq.com" }]
 description = "Supports runtime key-path recording/accessing for Python."
 classifiers = [
@@ -17,6 +17,7 @@ classifiers = [
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
+dependencies = ["typing_extensions >= 4.9"]
 
 [project.urls]
 Homepage = "https://github.com/Azureblade3808/py-runtime-keypath"
