@@ -296,7 +296,7 @@ class _KeyPathOfFunction:
 
 class KeyPathSupporting:
     """
-    A base class that supporting key-paths.
+    A base class that supports key-paths.
 
     Examples
     --------
