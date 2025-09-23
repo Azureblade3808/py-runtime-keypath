@@ -8,8 +8,7 @@ __all__ = [
 
 import threading
 from collections.abc import Sequence
-
-from typing_extensions import (
+from typing import (
     TYPE_CHECKING,
     Any,
     Final,
@@ -17,10 +16,17 @@ from typing_extensions import (
     Protocol,
     TypeVar,
     cast,
-    deprecated,
     final,
-    override,
 )
+
+try:
+    from typing_extensions import deprecated, override
+except ImportError:
+    if TYPE_CHECKING:
+        assert False
+    else:
+        deprecated = lambda *args, **kwargs: lambda x: x
+        override = lambda x: x
 
 _T = TypeVar("_T")
 
