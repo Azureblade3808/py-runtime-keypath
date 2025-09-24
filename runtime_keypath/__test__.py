@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import pytest
 
-from ._core import *
+from . import *
 
 
 class Tests__KeyPathSupporting:
