@@ -13,8 +13,6 @@ from collections.abc import Sequence
 from itertools import islice
 from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar
 
-from .._utils import invoke
-
 ######
 
 Value_co = TypeVar("Value_co", covariant=True)
@@ -95,61 +93,55 @@ class KeyPathMeta(type):
 
         ######
 
-        @invoke
-        def key_path() -> KeyPath[Any] | None:
-            instructions = list(dis.get_instructions(frame.f_code, first_line=frame.f_lineno))
-            islice_instructions = islice(
-                instructions,
-                bisect_right(instructions, frame.f_lasti, key=(lambda instruction: instruction.offset)),
-                None,
-            )
+        instructions = list(dis.get_instructions(frame.f_code, first_line=frame.f_lineno))
+        islice_instructions = islice(
+            instructions,
+            bisect_right([instruction.offset for instruction in instructions], frame.f_lasti),
+            None,
+        )
 
+        instruction = next(islice_instructions, None)
+        while instruction is not None and instruction.opname in ("PUSH_NULL", "STORE_FAST"):
             instruction = next(islice_instructions, None)
-            while instruction is not None and instruction.opname == "PUSH_NULL":
-                instruction = next(islice_instructions, None)
-            if instruction is None:
-                return None
-            opname = instruction.opname
-            argval = instruction.argval
-            if opname == "LOAD_NAME":
-                for dict_ in (local_dict, global_dict, builtin_dict):
-                    try:
-                        base = dict_[argval]
-                    except KeyError:
-                        pass
-                    else:
-                        break
-                else:
-                    return None
-            elif opname in ("LOAD_GLOBAL"):
-                base = global_dict[argval]
-            elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "LOAD_DEREF"):
-                base = local_dict[argval]
-            elif opname == "STORE_FAST_LOAD_FAST":
-                base = local_dict[argval[1]]
-            else:
-                return None
-
-            keys = []
-            while True:
-                instruction = next(islice_instructions, None)
-                if instruction is None:
-                    return None
-                opname = instruction.opname
-                if opname == "LOAD_ATTR":
-                    keys.append(instruction.argval)
-                elif opname in ("LOAD_FAST_BORROW", "PUSH_NULL", "STORE_FAST_LOAD_FAST"):
-                    pass
-                elif opname in ("CALL", "CALL_METHOD"):
-                    break
-                else:
-                    return None
-
-            key_path = KeyPath(base, keys)
-            return key_path
-
-        if key_path is None:
+        if instruction is None:
             raise ValueError("Unsupported access pattern.")
+        opname = instruction.opname
+        argval = instruction.argval
+        if opname == "LOAD_NAME":
+            for dict_ in (local_dict, global_dict, builtin_dict):
+                try:
+                    base = dict_[argval]
+                except KeyError:
+                    pass
+                else:
+                    break
+            else:
+                raise ValueError("Unsupported access pattern.")
+        elif opname in ("LOAD_GLOBAL"):
+            base = global_dict[argval]
+        elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "LOAD_DEREF"):
+            base = local_dict[argval]
+        elif opname == "STORE_FAST_LOAD_FAST":
+            base = local_dict[argval[1]]
+        else:
+            raise ValueError("Unsupported access pattern.")
+
+        keys = []
+        while True:
+            instruction = next(islice_instructions, None)
+            if instruction is None:
+                raise ValueError("Unsupported access pattern.")
+            opname = instruction.opname
+            if opname == "LOAD_ATTR":
+                keys.append(instruction.argval)
+            elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "PUSH_NULL", "STORE_FAST", "STORE_FAST_LOAD_FAST"):
+                pass
+            elif opname in ("CALL", "CALL_FUNCTION", "CALL_METHOD", "PRECALL"):
+                break
+            else:
+                raise ValueError("Unsupported access pattern.")
+
+        key_path = KeyPath(base, keys)
 
         ######
 
