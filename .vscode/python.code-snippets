@@ -1,0 +1,16 @@
+{
+    "General `*.py` file template": {
+        "body": [
+            "from __future__ import annotations",
+            "",
+            "__all__ = []",
+            "",
+            "######",
+            "",
+            "$1"
+        ],
+        "exclude": "**/__init__.py",
+        "include": "**/*.py",
+        "isFileTemplate": true
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "andreasxp.auto-snippets",
+        "huuums.vscode-fast-folder-structure",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-python.vscode-pylance"
+    ]
+}
