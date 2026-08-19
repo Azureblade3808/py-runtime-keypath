@@ -1,0 +1,28 @@
+{
+    "auto-snippets.snippets": [
+        {
+            "regex": "[\\\\/](?!__init__\\.py$)[^\\\\/]+\\.py$",
+            "snippet": "General `*.py` file template"
+        }
+    ],
+    "editor.rulers": [72, 88, 120],
+    "files.watcherExclude": {
+        "**/.ipynb_checkpoints/**": true,
+        "**/__pycache__/**": true
+    },
+    "isort.args": [
+        "--profile=black",
+        "--case-sensitive",
+        "--combine-as",
+        "--line-length=120",
+        "--project=runtime_keypath",
+        "--reverse-relative",
+        "--star-first",
+        "--treat-all-comment-as-code"
+    ],
+    "isort.check": true,
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.supportRestructuredText": false,
+    "python.testing.pytestArgs": ["--ignore-glob=*.*.py"],
+    "python.testing.pytestEnabled": true
+}

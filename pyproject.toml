@@ -1,0 +1,161 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "runtime-keypath"
+authors = [{ name = "Chris Fu", email = "17433201@qq.com" }]
+description = "Supports runtime key-path recording/accessing for Python."
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Development Status :: 3 - Alpha",
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+dynamic = ["version"]
+
+
+[project.urls]
+Homepage = "https://github.com/Azureblade3808/py-runtime-keypath"
+"Bug Tracker" = "https://github.com/Azureblade3808/py-runtime-keypath/issues"
+
+
+[dependency-groups]
+dev = ["black", "isort", "pytest", "setuptools", "typing-extensions"]
+
+
+[tool.black]
+line-length = 120
+target-version = ["py38"]
+
+
+[tool.isort]
+profile = "black"
+
+case_sensitive = true
+combine_as_imports = true
+line_length = 120
+reverse_relative = true
+star_first = true
+treat_all_comments_as_code = true
+
+
+[tool.pyright]
+include = ["**/*.ipy", "**/*.ipynb", "**/*.py", "**/*.pyi"]
+
+typeCheckingMode = "strict"
+useLibraryCodeForTypes = true
+
+analyzeUnannotatedFunctions = true
+deprecateTypingAliases = true
+disableBytesTypePromotions = true
+enableExperimentalFeatures = false
+enableReachabilityAnalysis = true
+enableTypeIgnoreComments = true
+strictDictionaryInference = false
+strictListInference = false
+strictParameterNoneValue = true
+strictSetInference = false
+
+reportGeneralTypeIssues = "error"
+reportPropertyTypeMismatch = "none"
+reportFunctionMemberAccess = "error"
+reportMissingImports = "error"
+reportMissingModuleSource = "none"
+reportInvalidTypeForm = "error"
+reportMissingTypeStubs = "none"
+reportImportCycles = "error"
+reportUnusedImport = "warning"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnusedVariable = "warning"
+reportDuplicateImport = "warning"
+reportWildcardImportFromLibrary = "warning"
+reportAbstractUsage = "error"
+reportArgumentType = "error"
+reportAssertTypeFailure = "error"
+reportAssignmentType = "error"
+reportAttributeAccessIssue = "error"
+reportCallIssue = "error"
+reportInconsistentOverload = "error"
+reportIndexIssue = "error"
+reportInvalidTypeArguments = "error"
+reportNoOverloadImplementation = "error"
+reportOperatorIssue = "error"
+reportOptionalSubscript = "error"
+reportOptionalMemberAccess = "error"
+reportOptionalCall = "error"
+reportOptionalIterable = "error"
+reportOptionalContextManager = "error"
+reportOptionalOperand = "error"
+reportRedeclaration = "error"
+reportReturnType = "error"
+reportTypedDictNotRequiredAccess = "error"
+reportUntypedFunctionDecorator = "warning"
+reportUntypedClassDecorator = "warning"
+reportUntypedBaseClass = "warning"
+reportUntypedNamedTuple = "warning"
+reportPrivateUsage = "none"
+reportTypeCommentUsage = "warning"
+reportPrivateImportUsage = "error"
+reportConstantRedefinition = "error"
+reportDeprecated = "warning"
+reportIncompatibleMethodOverride = "error"
+reportIncompatibleVariableOverride = "error"
+reportInconsistentConstructor = "error"
+reportOverlappingOverload = "none"
+reportPossiblyUnboundVariable = "error"
+reportMissingSuperCall = "none"
+reportUninitializedInstanceVariable = "error"
+reportInvalidStringEscapeSequence = "error"
+reportUnknownParameterType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownLambdaType = "none"
+reportUnknownVariableType = "none"
+reportUnknownMemberType = "none"
+reportMissingParameterType = "none"
+reportMissingTypeArgument = "none"
+reportInvalidTypeVarUse = "error"
+reportCallInDefaultInitializer = "none"
+reportUnnecessaryIsInstance = "none"
+reportUnnecessaryCast = "none"
+reportUnnecessaryComparison = "none"
+reportUnnecessaryContains = "none"
+reportAssertAlwaysTrue = "error"
+reportSelfClsParameterName = "warning"
+reportImplicitStringConcatenation = "warning"
+reportUndefinedVariable = "error"
+reportUnboundVariable = "error"
+reportUnhashable = "error"
+reportInvalidStubStatement = "none"
+reportIncompleteStub = "warning"
+reportUnsupportedDunderAll = "warning"
+reportUnusedCallResult = "none"
+reportUnusedCoroutine = "error"
+reportUnusedExcept = "error"
+reportUnusedExpression = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportMatchNotExhaustive = "warning"
+reportUnreachable = "none"
+reportImplicitOverride = "none"
+
+
+[tool.pytest.ini_options]
+python_files = ["runtime_keypath/*.py"]
+python_classes = ["Test", "Test__*"]
+python_functions = ["test", "test__*"]
+addopts = ["--doctest-modules", "--doctest-glob=*.md"]
+
+
+[tool.setuptools.dynamic]
+version = { attr = "runtime_keypath.__version__" }
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["runtime_keypath", "runtime_keypath.*"]
