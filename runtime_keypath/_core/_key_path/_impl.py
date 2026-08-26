@@ -132,8 +132,8 @@ class KeyPathMeta(type):
                 if not self.__has_cleaned_up:
                     object.__setattr__(base, "__class__", base_class)
 
-            def __call__(self, value: Value_t0, /) -> KeyPath[Value_t0]:
-                key_path = KeyPath(value, key_list)
+            def __call__(self, value: Any, /) -> KeyPath[Any]:
+                key_path = KeyPath(base, key_list)
                 self.__clean_up_if_needed()
                 return key_path
 
