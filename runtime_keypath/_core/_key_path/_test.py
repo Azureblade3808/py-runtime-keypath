@@ -110,6 +110,21 @@ class Test:
         c = C()
         assert KeyPath.of(c.v0) == KeyPath(base=c, keys=("v0",))
 
+    @staticmethod
+    def test__should_work_even_if_intermediate_values_are_missing() -> None:
+        class A:
+            b: B  # pyright: ignore[reportUninitializedInstanceVariable]
+
+        class B:
+            c: int  # pyright: ignore[reportUninitializedInstanceVariable]
+
+        a = A()
+        with pytest.raises(Exception):
+            a.b.c
+
+        key_path = KeyPath.of(a.b.c)
+        assert key_path == KeyPath(base=a, keys=("b", "c"))
+
     class Test__get:
         @staticmethod
         def test() -> None:
