@@ -11,7 +11,10 @@ import inspect
 from bisect import bisect_right
 from collections.abc import Sequence
 from itertools import islice
-from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar
+from threading import current_thread
+from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast
+
+from runtime_keypath._utils import invoke
 
 ######
 
@@ -39,48 +42,6 @@ class KeyPathMeta(type):
     # ! actually gets called.
     @property
     def of(self, /) -> KeyPathOfFunction:
-        """
-        Returns the key-path for accessing a certain value from a target
-        object with a key sequence such as `a.b.c`.
-
-        The target object and all intermediate objects, except for the
-        final value, are expected to subclass `KeyPathSupporting`.
-
-        Parameters
-        ----------
-        `value`
-            A value that is accessed with chained keys such as `a.b.c`.
-
-        Returns
-        -------
-        A key-path that indicates the target object and the key sequence
-        to access the given value.
-
-        Raises
-        ------
-        `RuntimeError`
-            Typically occurs when the target or an intermediate object
-            isn't subclassing `KeyPathSupporting`. Check the error
-            message for more details.
-
-        Example
-        -------
-        >>> class A:
-        ...     def __init__(self, /) -> None:
-        ...         self.b = B()
-        >>> class B:
-        ...     def __init__(self, /) -> None:
-        ...         self.c = C()
-        >>> class C:
-        ...     pass
-        >>> a = A()
-        >>> key_path = KeyPath.of(a.b.c)
-        >>> assert key_path.base is a
-        >>> assert key_path.keys == ("b", "c")
-        """
-
-        ######
-
         frame = inspect.currentframe()
         if frame is not None:
             frame = frame.f_back
@@ -93,64 +54,91 @@ class KeyPathMeta(type):
 
         ######
 
-        instructions = list(dis.get_instructions(frame.f_code, first_line=frame.f_lineno))
-        islice_instructions = islice(
-            instructions,
-            bisect_right([instruction.offset for instruction in instructions], frame.f_lasti),
-            None,
-        )
+        MISSING = cast("Any", object())
 
-        instruction = next(islice_instructions, None)
-        while instruction is not None and instruction.opname in ("PUSH_NULL", "STORE_FAST"):
-            instruction = next(islice_instructions, None)
-        if instruction is None:
-            raise ValueError("Unsupported access pattern.")
-        opname = instruction.opname
-        argval = instruction.argval
-        if opname == "LOAD_NAME":
-            for dict_ in (local_dict, global_dict, builtin_dict):
-                try:
-                    base = dict_[argval]
-                except KeyError:
-                    pass
-                else:
-                    break
-            else:
-                raise ValueError("Unsupported access pattern.")
-        elif opname in ("LOAD_GLOBAL"):
-            base = global_dict[argval]
-        elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "LOAD_DEREF"):
-            base = local_dict[argval]
-        elif opname == "STORE_FAST_LOAD_FAST":
-            base = local_dict[argval[1]]
-        else:
-            raise ValueError("Unsupported access pattern.")
+        @invoke
+        def base() -> Any:
+            instructions = list(dis.get_instructions(frame.f_code, first_line=frame.f_lineno))
+            islice_instructions = islice(
+                instructions,
+                bisect_right([instruction.offset for instruction in instructions], frame.f_lasti),
+                None,
+            )
 
-        keys = []
-        while True:
-            instruction = next(islice_instructions, None)
-            if instruction is None:
-                raise ValueError("Unsupported access pattern.")
-            opname = instruction.opname
-            if opname == "LOAD_ATTR":
-                keys.append(instruction.argval)
-            elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "PUSH_NULL", "STORE_FAST", "STORE_FAST_LOAD_FAST"):
-                pass
-            elif opname in ("CALL", "CALL_FUNCTION", "CALL_METHOD", "PRECALL"):
+            while True:
+                instruction = next(islice_instructions, None)
+                if instruction is None:
+                    return MISSING
+                if instruction.opname in ("PUSH_NULL", "STORE_FAST"):
+                    continue
                 break
-            else:
-                raise ValueError("Unsupported access pattern.")
 
-        key_path = KeyPath(base, keys)
+            opname = instruction.opname
+            argval = instruction.argval
+            if opname == "LOAD_NAME":
+                for dict_ in (local_dict, global_dict, builtin_dict):
+                    try:
+                        return dict_[argval]
+                    except KeyError:
+                        pass
+                else:
+                    return MISSING
+            elif opname in ("LOAD_GLOBAL"):
+                return global_dict[argval]
+            elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "LOAD_DEREF"):
+                return local_dict[argval]
+            elif opname in ("STORE_FAST_LOAD_FAST", "STORE_FAST_BORROW_LOAD_FAST_BORROW"):
+                return local_dict[argval[1]]
+            else:
+                return MISSING
+
+        if base is MISSING:
+            raise ValueError("Unsupported access pattern.")
 
         ######
 
-        result = key_path
+        thread = current_thread()
+        key_list = []
 
-        def key_path_of_function(value: Value_t0, /) -> KeyPath[Value_t0]:
-            return result
+        class KeyRecorder:
+            def __getattribute__(self, name: str) -> Any:
+                if current_thread() is not thread:
+                    raise RuntimeError("`KeyPath.of` argument gets accessed from a different thread.")
 
-        key_path_of_function.__doc__ = KeyPathMeta.of.__doc__
+                key_list.append(name)
+                return self
+
+            def __getattr__(self, name: str) -> Any:
+                raise NotImplementedError
+
+            def __setattr__(self, name: str, value: Any) -> None:
+                raise NotImplementedError
+
+            def __delattr__(self, name: str) -> None:
+                raise NotImplementedError
+
+        base_class = base.__class__
+        base.__class__ = KeyRecorder
+
+        ######
+
+        # ! `key_path_of_function` is a callable object instead of a plain function, so that we can still do some clean
+        # ! up even if it doesn't actually get called (e.g. a keyboard interrupt just in time).
+        @invoke
+        class key_path_of_function:
+            __has_cleaned_up: bool = False
+
+            def __clean_up_if_needed(self, /) -> None:
+                if not self.__has_cleaned_up:
+                    object.__setattr__(base, "__class__", base_class)
+
+            def __call__(self, value: Value_t0, /) -> KeyPath[Value_t0]:
+                key_path = KeyPath(value, key_list)
+                self.__clean_up_if_needed()
+                return key_path
+
+            def __del__(self, /) -> None:
+                self.__clean_up_if_needed()
 
         ######
 
@@ -189,13 +177,6 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
         A key-path that indicates the target object and the key sequence
         to access the given value.
 
-        Raises
-        ------
-        `RuntimeError`
-            Typically occurs when the target or an intermediate object
-            isn't subclassing `KeyPathSupporting`. Check the error
-            message for more details.
-
         Example
         -------
         >>> class A:
@@ -210,11 +191,18 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
         >>> key_path = KeyPath.of(a.b.c)
         >>> assert key_path.base is a
         >>> assert key_path.keys == ("b", "c")
+
+        Warning
+        -------
+        The base object will be polluted during the key-path evaluation.
+        Therefore, do not use it in another thread until the key-path is
+        returned.
         """
 
         ...
 
     if not TYPE_CHECKING:
+        KeyPathMeta.of.__doc__ = of.__doc__
         del of
 
     ######

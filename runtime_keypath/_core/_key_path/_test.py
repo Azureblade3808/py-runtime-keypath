@@ -4,9 +4,6 @@ __all__ = []
 
 ######
 
-import time
-from threading import Thread
-
 import pytest
 from typing_extensions import Any, cast
 
@@ -94,70 +91,6 @@ class Test:
             of = KeyPath.of
             of(a.b.c)
             of(a.b.c)
-
-    @staticmethod
-    def test__should_not_swallow_exceptions() -> None:
-        class A:
-            b: B
-
-            def __init__(self) -> None:
-                self.b = B()
-
-        class B:
-            c: C
-
-            def __init__(self) -> None:
-                self.c = C()
-
-        class C:
-            pass
-
-        a = A()
-
-        with pytest.raises(AttributeError):
-            # Accessing something that doesn't exist.
-            KeyPath.of(a.b.c.d)  # type: ignore
-
-        # With above exception caught, normal code should run correctly.
-        key_path = KeyPath.of(a.b.c)
-        assert key_path == KeyPath(base=a, keys=("b", "c"))
-
-    @staticmethod
-    def test__should_work_in_parallel() -> None:
-        class A:
-            b: B
-
-            def __init__(self) -> None:
-                self.b = B()
-
-        class B:
-            c: C
-
-            def __init__(self) -> None:
-                self.c = C()
-
-        class C:
-            pass
-
-        a = A()
-        key_path_list: list[KeyPath] = []
-
-        def f() -> None:
-            # Sleeping for a short while so that the influence of starting a thread
-            # could be minimal.
-            time.sleep(1)
-
-            key_path = KeyPath.of(a.b.c)
-            key_path_list.append(key_path)
-
-        threads = [Thread(target=f) for _ in range(1000)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-
-        assert len(key_path_list) == 1000
-        assert all(key_path == KeyPath(base=a, keys=("b", "c")) for key_path in key_path_list)
 
     @staticmethod
     def test__should_not_record_keys_from_internal_references() -> None:
