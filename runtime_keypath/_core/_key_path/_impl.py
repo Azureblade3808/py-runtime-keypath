@@ -10,16 +10,21 @@ import dis
 import inspect
 from bisect import bisect_right
 from collections.abc import Sequence
-from itertools import islice
 from threading import current_thread
-from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast, overload
 
 from runtime_keypath._utils import invoke
 
 ######
 
+MISSING = cast(Any, object())
+
+######
+
 Value_co = TypeVar("Value_co", covariant=True)
 Value_t0 = TypeVar("Value_t0")
+
+Default_t0 = TypeVar("Default_t0")
 
 ######
 
@@ -54,41 +59,50 @@ class KeyPathMeta(type):
 
         ######
 
-        MISSING = cast("Any", object())
-
         @invoke
         def base() -> Any:
-            instructions = list(dis.get_instructions(frame.f_code, first_line=frame.f_lineno))
-            islice_instructions = islice(
-                instructions,
-                bisect_right([instruction.offset for instruction in instructions], frame.f_lasti),
-                None,
-            )
+            instructions = tuple(dis.get_instructions(frame.f_code))
+            pending_instructions = instructions[
+                bisect_right([instruction.offset for instruction in instructions], frame.f_lasti) :
+            ]
 
-            while True:
-                instruction = next(islice_instructions, None)
-                if instruction is None:
-                    return MISSING
-                if instruction.opname in ("PUSH_NULL", "STORE_FAST"):
-                    continue
-                break
+            for instruction in pending_instructions:
+                opname = instruction.opname
 
-            opname = instruction.opname
-            argval = instruction.argval
-            if opname == "LOAD_NAME":
-                for dict_ in (local_dict, global_dict, builtin_dict):
-                    try:
-                        return dict_[argval]
-                    except KeyError:
-                        pass
-                else:
+                if "CALL" in opname:
                     return MISSING
-            elif opname in ("LOAD_GLOBAL"):
-                return global_dict[argval]
-            elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "LOAD_DEREF"):
-                return local_dict[argval]
-            elif opname in ("STORE_FAST_LOAD_FAST", "STORE_FAST_BORROW_LOAD_FAST_BORROW"):
-                return local_dict[argval[1]]
+
+                if "LOAD" in opname:
+                    argval = instruction.argval
+
+                    if opname == "LOAD_GLOBAL":
+                        dicts = [global_dict, builtin_dict]
+                        key = argval
+                    elif opname in (
+                        "LOAD_CLOSURE",
+                        "LOAD_DEREF",
+                        "LOAD_FAST",
+                        "LOAD_FAST_AND_CLEAR",
+                        "LOAD_FAST_BORROW",
+                        "LOAD_FAST_CHECK",
+                    ):
+                        dicts = [local_dict]
+                        key = argval
+                    elif opname == "STORE_FAST_LOAD_FAST":
+                        dicts = [local_dict]
+                        key = argval[1]
+                    elif opname == "LOAD_NAME":
+                        dicts = [local_dict, global_dict, builtin_dict]
+                        key = argval
+                    else:
+                        return MISSING
+
+                    for dict_ in dicts:
+                        value = dict_.get(key, MISSING)
+                        if value is not MISSING:
+                            return value
+                    else:
+                        return MISSING
             else:
                 return MISSING
 
@@ -207,8 +221,9 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
 
         ...
 
+    KeyPathMeta.of.__doc__ = of.__doc__
+
     if not TYPE_CHECKING:
-        KeyPathMeta.of.__doc__ = of.__doc__
         del of
 
     ######
@@ -236,18 +251,41 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
 
     ######
 
-    def get(self, /) -> Value_co:
+    @overload
+    def get(self, /) -> Value_co: ...
+    @overload
+    def get(self, /, *, default: Default_t0) -> Value_co | Default_t0: ...
+
+    def get(self, /, *, default: Any = MISSING) -> Any:
         """
-        Get the value from the end-point of this key-path.
+        Returns the value from the end-point of this key-path.
+
+        When any key in the key path does not exist, the `default`
+        argument is returned if it is provided, otherwise an
+        `AttributeError` is raised.
         """
 
+        if default is MISSING:
+            return self.__get()
+        else:
+            return self.__get_with_default(default)
+
+    def __get(self, /) -> Any:
         value = self.__base
         for key in self.__keys:
             value = getattr(value, key)
         return value
 
-    # A convenient alias for `get`.
-    __call__ = get
+    def __get_with_default(self, default: Any, /) -> Any:
+        value = self.__base
+        for key in self.__keys:
+            value = getattr(value, key, MISSING)
+            if value is MISSING:
+                return default
+        return value
+
+    # A convenient alias for `__get` (non-default version of `get`).
+    __call__ = __get
 
     ######
 

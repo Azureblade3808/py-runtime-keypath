@@ -563,7 +563,7 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "attrs", specifier = ">=25.3.0" },
+    { name = "attrs" },
     { name = "black" },
     { name = "isort" },
     { name = "pytest" },
