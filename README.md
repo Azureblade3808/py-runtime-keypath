@@ -7,27 +7,25 @@ from __future__ import annotations
 
 from runtime_keypath import KeyPath, KeyPathSupporting
 
-class A(KeyPathSupporting):
-    def __init__(self) -> None:
-        self.__b = B()
+class A:
+    b: B
 
-    @property
-    def b(self) -> B:
-        return self.__b
-
-class B(KeyPathSupporting):
-    def __init__(self) -> None:
-        self.__c = C()
-
-    @property
-    def c(self) -> C:
-        return self.__c
+class B:
+    c: C
 
 class C:
     pass
 
 a = A()
-key_path = KeyPath.of(a.b.c)
-assert key_path.target is a and key_path.keys == ("b", "c")
+
+# Note that although `a.b.c` will be an error, `KeyPath.of(a.b.c)` still works.
+key_path = KeyPath.of(a.b.c)  
+assert key_path == KeyPath(base=a, keys=["b", "c"])
+
+b = B()
+a.b = b
+c = C()
+b.c = c
+
 assert key_path() is a.b.c
 ```
