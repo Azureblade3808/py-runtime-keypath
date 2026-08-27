@@ -72,14 +72,9 @@ class KeyPathMeta(type):
                     argval = instruction.argval
 
                     if opname == "LOAD_GLOBAL":
-                        for dict_ in [global_dict, builtin_dict]:
-                            value = dict_.get(argval, MISSING)
-                            if value is not MISSING:
-                                return value
-
-                        return MISSING
-
-                    if opname in (
+                        dicts = [global_dict, builtin_dict]
+                        key = argval
+                    elif opname in (
                         "LOAD_CLOSURE",
                         "LOAD_DEREF",
                         "LOAD_FAST",
@@ -87,22 +82,25 @@ class KeyPathMeta(type):
                         "LOAD_FAST_BORROW",
                         "LOAD_FAST_CHECK",
                     ):
-                        return local_dict.get(argval, MISSING)
-
-                    if opname == "STORE_FAST_LOAD_FAST":
-                        return local_dict.get(argval[1], MISSING)
-
-                    if opname == "LOAD_NAME":
-                        for dict_ in [local_dict, global_dict, builtin_dict]:
-                            value = dict_.get(argval, MISSING)
-                            if value is not MISSING:
-                                return value
-
+                        dicts = [local_dict]
+                        key = argval
+                    elif opname == "STORE_FAST_LOAD_FAST":
+                        dicts = [local_dict]
+                        key = argval[1]
+                    elif opname == "LOAD_NAME":
+                        dicts = [local_dict, global_dict, builtin_dict]
+                        key = argval
+                    else:
                         return MISSING
 
-                    return MISSING
-
-            return MISSING
+                    for dict_ in dicts:
+                        value = dict_.get(key, MISSING)
+                        if value is not MISSING:
+                            return value
+                    else:
+                        return MISSING
+            else:
+                return MISSING
 
         if base is MISSING:
             raise ValueError("Unsupported access pattern.")
