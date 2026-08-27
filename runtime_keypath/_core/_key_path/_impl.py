@@ -72,7 +72,12 @@ class KeyPathMeta(type):
                     argval = instruction.argval
 
                     if opname == "LOAD_GLOBAL":
-                        return global_dict[argval]
+                        for dict_ in [global_dict, builtin_dict]:
+                            value = dict_.get(argval, MISSING)
+                            if value is not MISSING:
+                                return value
+
+                        return MISSING
 
                     if opname in (
                         "LOAD_CLOSURE",
