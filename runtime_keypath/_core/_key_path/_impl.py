@@ -184,9 +184,6 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
         Returns the key-path for accessing a certain value from a target
         object with a key sequence such as `a.b.c`.
 
-        The target object and all intermediate objects, except for the
-        final value, are expected to subclass `KeyPathSupporting`.
-
         Parameters
         ----------
         `value`
@@ -214,9 +211,14 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
 
         Warning
         -------
-        The base object will be polluted during the key-path evaluation.
-        Therefore, do not use it in another thread until the key-path is
-        returned.
+        The base object will get temporarily polluted (for its
+        `__class__` is replaced) during the key-path evaluation. Just
+        before the key-path object is returned, the base object will be
+        restored to its original state.
+
+        It is important that the base object not be used in another
+        thread during the process, or an exception may be raised.
+        Single-threaded usage is always safe though.
         """
 
         ...

@@ -15,5 +15,6 @@ Result_t0 = TypeVar("Result_t0")
 
 ######
 
+
 def invoke(function: Callable[[], Result_t0], /) -> Result_t0:
     return function()
