@@ -258,7 +258,11 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
 
     def get(self, /, *, default: Any = MISSING) -> Any:
         """
-        Get the value from the end-point of this key-path.
+        Returns the value from the end-point of this key-path.
+
+        When any key in the key path does not exist, the `default`
+        argument is returned if it is provided, otherwise an
+        `AttributeError` is raised.
         """
 
         if default is MISSING:
