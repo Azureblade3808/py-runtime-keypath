@@ -175,6 +175,35 @@ class Test:
             a.b.c.v = 12345
             assert key_path_2.get() == 12345
 
+        @staticmethod
+        def test__should_work_with_default() -> None:
+            MISSING = cast(Any, object())
+
+            class A:
+                b: B  # pyright: ignore[reportUninitializedInstanceVariable]
+
+            class B:
+                c: C  # pyright: ignore[reportUninitializedInstanceVariable]
+
+            class C:
+                v: int  # pyright: ignore[reportUninitializedInstanceVariable]
+
+            a = A()
+            b = B()
+            c = C()
+
+            key_path = KeyPath.of(a.b.c.v)
+            assert key_path.get(default=MISSING) is MISSING
+
+            a.b = b
+            assert key_path.get(default=MISSING) is MISSING
+
+            b.c = c
+            assert key_path.get(default=MISSING) is MISSING
+
+            c.v = 42
+            assert key_path.get(default=MISSING) == 42
+
     class Test__unsafe_set:
         @staticmethod
         def test() -> None:

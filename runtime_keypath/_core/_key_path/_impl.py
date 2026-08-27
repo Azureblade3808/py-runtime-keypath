@@ -11,14 +11,20 @@ import inspect
 from bisect import bisect_right
 from collections.abc import Sequence
 from threading import current_thread
-from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast, overload
 
 from runtime_keypath._utils import invoke
 
 ######
 
+MISSING = cast(Any, object())
+
+######
+
 Value_co = TypeVar("Value_co", covariant=True)
 Value_t0 = TypeVar("Value_t0")
+
+Default_t0 = TypeVar("Default_t0")
 
 ######
 
@@ -52,8 +58,6 @@ class KeyPathMeta(type):
         builtin_dict = frame.f_builtins
 
         ######
-
-        MISSING = cast("Any", object())
 
         @invoke
         def base() -> Any:
@@ -246,18 +250,37 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
 
     ######
 
-    def get(self, /) -> Value_co:
+    @overload
+    def get(self, /) -> Value_co: ...
+    @overload
+    def get(self, /, *, default: Default_t0) -> Value_co | Default_t0: ...
+
+    def get(self, /, *, default: Any = MISSING) -> Any:
         """
         Get the value from the end-point of this key-path.
         """
 
+        if default is MISSING:
+            return self.__get()
+        else:
+            return self.__get_with_default(default)
+
+    def __get(self, /) -> Any:
         value = self.__base
         for key in self.__keys:
             value = getattr(value, key)
         return value
 
-    # A convenient alias for `get`.
-    __call__ = get
+    def __get_with_default(self, default: Any, /) -> Any:
+        value = self.__base
+        for key in self.__keys:
+            value = getattr(value, key, MISSING)
+            if value is MISSING:
+                return default
+        return value
+
+    # A convenient alias for `__get` (non-default version of `get`).
+    __call__ = __get
 
     ######
 
