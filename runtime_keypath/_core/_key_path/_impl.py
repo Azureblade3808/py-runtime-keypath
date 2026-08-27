@@ -10,7 +10,6 @@ import dis
 import inspect
 from bisect import bisect_right
 from collections.abc import Sequence
-from itertools import islice
 from threading import current_thread
 from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast
 
@@ -58,39 +57,48 @@ class KeyPathMeta(type):
 
         @invoke
         def base() -> Any:
-            instructions = list(dis.get_instructions(frame.f_code, first_line=frame.f_lineno))
-            islice_instructions = islice(
-                instructions,
-                bisect_right([instruction.offset for instruction in instructions], frame.f_lasti),
-                None,
-            )
+            instructions = tuple(dis.get_instructions(frame.f_code))
+            pending_instructions = instructions[
+                bisect_right([instruction.offset for instruction in instructions], frame.f_lasti) :
+            ]
 
-            while True:
-                instruction = next(islice_instructions, None)
-                if instruction is None:
-                    return MISSING
-                if instruction.opname in ("PUSH_NULL", "STORE_FAST"):
-                    continue
-                break
+            for instruction in pending_instructions:
+                opname = instruction.opname
 
-            opname = instruction.opname
-            argval = instruction.argval
-            if opname == "LOAD_NAME":
-                for dict_ in (local_dict, global_dict, builtin_dict):
-                    try:
-                        return dict_[argval]
-                    except KeyError:
-                        pass
-                else:
+                if "CALL" in opname:
                     return MISSING
-            elif opname in ("LOAD_GLOBAL"):
-                return global_dict[argval]
-            elif opname in ("LOAD_FAST", "LOAD_FAST_BORROW", "LOAD_DEREF"):
-                return local_dict[argval]
-            elif opname in ("STORE_FAST_LOAD_FAST", "STORE_FAST_BORROW_LOAD_FAST_BORROW"):
-                return local_dict[argval[1]]
-            else:
-                return MISSING
+
+                if "LOAD" in opname:
+                    argval = instruction.argval
+
+                    if opname == "LOAD_GLOBAL":
+                        return global_dict[argval]
+
+                    if opname in (
+                        "LOAD_CLOSURE",
+                        "LOAD_DEREF",
+                        "LOAD_FAST",
+                        "LOAD_FAST_AND_CLEAR",
+                        "LOAD_FAST_BORROW",
+                        "LOAD_FAST_CHECK",
+                    ):
+                        return local_dict[argval]
+
+                    if opname == "STORE_FAST_LOAD_FAST":
+                        return local_dict[argval[1]]
+
+                    if opname == "LOAD_NAME":
+                        for dict_ in (local_dict, global_dict, builtin_dict):
+                            try:
+                                return dict_[argval]
+                            except KeyError:
+                                pass
+
+                        return MISSING
+
+                    return MISSING
+
+            return MISSING
 
         if base is MISSING:
             raise ValueError("Unsupported access pattern.")
