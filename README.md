@@ -27,5 +27,5 @@ a.b = b
 c = C()
 b.c = c
 
-assert key_path() is a.b.c
+assert key_path() is c
 ```
