@@ -221,8 +221,9 @@ class KeyPath(Generic[Value_co], metaclass=KeyPathMeta):
 
         ...
 
+    KeyPathMeta.of.__doc__ = of.__doc__
+
     if not TYPE_CHECKING:
-        KeyPathMeta.of.__doc__ = of.__doc__
         del of
 
     ######
