@@ -87,17 +87,16 @@ class KeyPathMeta(type):
                         "LOAD_FAST_BORROW",
                         "LOAD_FAST_CHECK",
                     ):
-                        return local_dict[argval]
+                        return local_dict.get(argval, MISSING)
 
                     if opname == "STORE_FAST_LOAD_FAST":
-                        return local_dict[argval[1]]
+                        return local_dict.get(argval[1], MISSING)
 
                     if opname == "LOAD_NAME":
-                        for dict_ in (local_dict, global_dict, builtin_dict):
-                            try:
-                                return dict_[argval]
-                            except KeyError:
-                                pass
+                        for dict_ in [local_dict, global_dict, builtin_dict]:
+                            value = dict_.get(argval, MISSING)
+                            if value is not MISSING:
+                                return value
 
                         return MISSING
 
