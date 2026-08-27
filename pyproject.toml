@@ -26,7 +26,7 @@ Homepage = "https://github.com/Azureblade3808/py-runtime-keypath"
 
 
 [dependency-groups]
-dev = ["black", "isort", "pytest", "setuptools", "typing-extensions"]
+dev = ["attrs", "black", "isort", "pytest", "setuptools", "typing-extensions"]
 
 
 [tool.black]

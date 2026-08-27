@@ -4,6 +4,7 @@ __all__ = []
 
 ######
 
+import attrs
 import pytest
 from typing_extensions import Any, cast
 
@@ -124,6 +125,22 @@ class Test:
 
         key_path = KeyPath.of(a.b.c)
         assert key_path == KeyPath(base=a, keys=("b", "c"))
+
+    @staticmethod
+    def test__should_work_with_data_classes() -> None:
+        @attrs.mutable
+        class A:
+            b: B
+
+        @attrs.frozen
+        class B:
+            c: C
+
+        class C:
+            pass
+
+        a = A(B(C()))
+        assert KeyPath.of(a.b.c) == KeyPath(base=a, keys=("b", "c"))
 
     class Test__get:
         @staticmethod

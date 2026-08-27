@@ -97,10 +97,14 @@ class KeyPathMeta(type):
 
         ######
 
+        base_class = base.__class__
+
         thread = current_thread()
         key_list = []
 
-        class KeyRecorder:
+        class KeyRecorder(base_class):
+            __slots__ = ()
+
             def __getattribute__(self, name: str) -> Any:
                 if current_thread() is not thread:
                     raise ValueError("`KeyPath.of` argument gets accessed from a different thread.")
@@ -117,7 +121,6 @@ class KeyPathMeta(type):
             def __delattr__(self, name: str) -> None:
                 raise NotImplementedError
 
-        base_class = base.__class__
         if base_class.__module__ == KeyRecorder.__module__ and base_class.__qualname__ == KeyRecorder.__qualname__:
             raise ValueError("`KeyPath.of` argument gets accessed from a different thread.")
 
