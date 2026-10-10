@@ -53,9 +53,9 @@ True
 >>> key_path.get() is a.b.c
 True
 
->>> key_path.unsafe_set(C())
+>>> key_path.unsafe_set(None)
 
->>> isinstance(a.b.c, C)
+>>> a.b.c is None
 True
 
 ```
